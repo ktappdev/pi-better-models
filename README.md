@@ -21,7 +21,11 @@ export ARTIFICIAL_ANALYSIS_API_KEY=aa_xxx   # get one at https://artificialanaly
 ## Install
 
 ```bash
+# From npm (once published)
 pi install npm:@ktappdev/pi-better-models
+
+# From GitHub (pre-release)
+pi install git:github.com/ktappdev/pi-better-models
 ```
 
 ## Data sources
