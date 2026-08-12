@@ -77,6 +77,25 @@ export function benchGrade(score: number | null | undefined): string {
 	return "F";
 }
 
+export type ModelDetailColumn = "context" | "pricing" | "score";
+
+export const DEFAULT_MODEL_DETAIL_COLUMNS: readonly ModelDetailColumn[] = ["pricing", "score"];
+
+/**
+ * Read the optional metadata-column setting. The default intentionally omits
+ * context so pricing and the coding rating remain visible in compact pickers.
+ * Invalid/empty configuration falls back to the useful default.
+ */
+export function getModelDetailColumns(raw = process.env.PI_MODELS_COLUMNS): ModelDetailColumn[] {
+	const allowed: readonly ModelDetailColumn[] = ["context", "pricing", "score"];
+	const requested = raw
+		?.split(",")
+		.map((column) => column.trim().toLowerCase())
+		.filter((column): column is ModelDetailColumn => allowed.includes(column as ModelDetailColumn));
+	const unique = [...new Set(requested)];
+	return unique.length > 0 ? unique : [...DEFAULT_MODEL_DETAIL_COLUMNS];
+}
+
 export type SortableModel = {
 	provider: string;
 	id: string;
@@ -328,6 +347,8 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 				normalizedByValue.set(value, normalizeModelText(text));
 			}
 
+			const detailColumns = getModelDetailColumns();
+
 			const items: SelectItem[] = dedupedRows.map(({ m, dev, bench, localRank }) => {
 				const isCurrent = current && m.provider === current.provider && m.id === current.id;
 
@@ -355,8 +376,8 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 				const idColored = theme.fg(accent, m.id);
 				const label = `${marker} ${rankPrefix} ${providerColored}${idColored}`;
 
-				// Description: ctx · cost · score stars
-				// Colors: ctx muted · cost success (free muted) · score+stars warning
+				// Description fields are configurable with PI_MODELS_COLUMNS.
+				// Default: pricing · coding score + letter grade.
 				const ctxRaw = fmtCtx(dev?.limit?.context ?? 0);
 				const ctxStr = mute(ctxRaw.padStart(4));
 				const rawCost = fmtCost(dev);
@@ -373,14 +394,21 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 					const score = bench.overallScore ?? "?";
 					const s = bench.overallScore;
 					const scoreColor = benchScoreColor(s);
-					// Letter grade replaces the star bar — finer resolution
-					// (12 levels vs 5 stars) and narrower. Same color as the
-					// score so the two read as one unit.
 					const grade = benchGrade(s);
 					const gradeColored = s == null ? mute(grade) : theme.fg(scoreColor, grade);
 					benchSeg = `⚡${theme.fg(scoreColor, String(score))} ${gradeColored}`;
 				}
-				const desc = [ctxStr, costSeg, benchSeg].filter(Boolean).join(sep);
+				const detailParts = detailColumns.map((column) => {
+					switch (column) {
+						case "context":
+							return ctxStr;
+						case "pricing":
+							return costSeg;
+						case "score":
+							return benchSeg;
+					}
+				});
+				const desc = detailParts.filter(Boolean).join(sep);
 
 				return {
 					value: `${m.provider}/${m.id}`,
@@ -396,9 +424,10 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 			// Reserve room for context, pricing, and coding score/grade. A very long
 			// provider/model label must not consume the entire primary column or
 			// pi-tui hides the description when fewer than 10 columns remain.
-			// Long labels truncate; metadata stays visible and useful.
+			// Long provider/model labels truncate so the configured metadata stays
+			// visible. Keep the primary column compact enough for pricing + rating.
 			const widestLabel = items.reduce((w, it) => Math.max(w, visibleWidth(it.label)), 0);
-			const primaryColumnWidth = Math.min(widestLabel + 2, 48);
+			const primaryColumnWidth = Math.min(widestLabel + 2, 40);
 
 			const search = new Input();
 			const list = new SelectList(
@@ -464,9 +493,18 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 				render(w: number) {
 					const mw = modalWidth(w);
 					const inner = mw - 4; // CHROME = 2 border + 2 padding
+					const detailHeader = detailColumns
+						.map((column) =>
+							column === "context"
+								? "context"
+								: column === "pricing"
+									? "pricing"
+									: "coding rank & score (AA)",
+						)
+						.join(" · ");
 					const lines: string[] = [
 						theme.fg(accent, theme.bold(`${icon("picker.model")}  Select model`)),
-						theme.fg("dim", "context · pricing · coding rank & score from modelgrep.com"),
+						theme.fg("dim", `${detailHeader} · modelgrep + Artificial Analysis`),
 						thinkLine(),
 						theme.fg("muted", "Search:"),
 						...search.render(inner),

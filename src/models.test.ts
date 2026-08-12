@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
 	benchGrade,
+	getModelDetailColumns,
 	filterModelItems,
 	fmtCost,
 	fmtCtx,
@@ -160,6 +161,26 @@ describe("benchGrade", () => {
 	});
 });
 
+
+describe("getModelDetailColumns", () => {
+	it("defaults to pricing and score", () => {
+		expect(getModelDetailColumns(undefined)).toEqual(["pricing", "score"]);
+	});
+
+	it("accepts configured columns in order", () => {
+		expect(getModelDetailColumns("context,pricing,score")).toEqual(["context", "pricing", "score"]);
+		expect(getModelDetailColumns("score,pricing")).toEqual(["score", "pricing"]);
+	});
+
+	it("deduplicates and ignores unknown columns", () => {
+		expect(getModelDetailColumns("pricing,wat,pricing,score")).toEqual(["pricing", "score"]);
+	});
+
+	it("falls back when configuration has no valid columns", () => {
+		expect(getModelDetailColumns("wat,nothing")).toEqual(["pricing", "score"]);
+		expect(getModelDetailColumns("")).toEqual(["pricing", "score"]);
+	});
+});
 describe("sortModels", () => {
 	const models = [
 		{ provider: "a", id: "m1", name: "Zebra", score: 80 },

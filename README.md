@@ -4,7 +4,7 @@ Pi extension — enhanced `/models` picker with **Artificial Analysis coding ran
 
 ## What it does
 
-Registers a `/models` slash command that replaces Pi's built-in `/model` selector with a richer TUI picker. Each row shows the model id, context window, per-million-token cost, and an **Artificial Analysis Coding Index** score with a letter grade (A+ → F) when available. The list is sorted by coding score (best first), then alphabetically for unscored models. Fuzzy search filters the list as you type. `Tab` and `Shift+Tab` cycle next/previous model; `Enter` selects. Selecting a model switches the active model for the session.
+Registers a `/models` slash command that replaces Pi's built-in `/model` selector with a richer TUI picker. Each row shows the model id, routing provider, per-million-token cost, and an **Artificial Analysis Coding Index** score with a letter grade (A+ → F) when available. Context, pricing, and rating fields are configurable; by default the compact picker shows pricing + rating so the score remains visible. The list is sorted by coding score (best first), then alphabetically for unscored models. Fuzzy search filters the list as you type. `Tab` and `Shift+Tab` cycle next/previous model; `Enter` selects. Selecting a model switches the active model for the session.
 
 Model metadata (context, cost, capabilities) is sourced from [modelgrep](https://modelgrep.com), which republishes Artificial Analysis benchmarks plus pricing/context/capabilities — no API key required. Registered Pi model `cost`/`contextWindow` fill gaps for private or gateway models not in the catalog. The **coding score/rank is the AA Coding Index**, computed locally among your available models (best pickable = #1).
 
@@ -17,6 +17,29 @@ export ARTIFICIAL_ANALYSIS_API_KEY=aa_xxx   # get one at https://artificialanaly
 ```
 
 (`AA_API_KEY` is accepted as an alias.) Without a key the extension works fully on modelgrep alone — the AA source is skipped, so keyless users pay nothing.
+
+### Picker columns
+
+The default compact layout is:
+
+```text
+pricing · coding rank & score (AA)
+```
+
+Change the visible fields with `PI_MODELS_COLUMNS`. Supported fields are `context`, `pricing`, and `score`:
+
+```bash
+# Default
+export PI_MODELS_COLUMNS=pricing,score
+
+# Show all available metadata
+export PI_MODELS_COLUMNS=context,pricing,score
+
+# Show only context and rating
+export PI_MODELS_COLUMNS=context,score
+```
+
+Restart Pi after changing the environment variable.
 
 ## Install
 
