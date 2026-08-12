@@ -17,13 +17,21 @@ A Pi extension that replaces the basic model picker with a searchable `/models` 
 - Full-width selected-row highlighting
 - `/models` command plus `Ctrl+L` model-picker integration
 
-## Install from GitHub
+## Install
 
-The package is not published to npm yet:
+The package is not published on npm yet. Use the GitHub install for now:
 
 ```bash
 pi install git:github.com/ktappdev/pi-better-models
 ```
+
+Once published, the npm install will be:
+
+```bash
+pi install npm:@ktappdev/pi-better-models
+```
+
+[NPM package page](https://www.npmjs.com/package/@ktappdev/pi-better-models) · [GitHub repository](https://github.com/ktappdev/pi-better-models)
 
 ## How the score works
 
