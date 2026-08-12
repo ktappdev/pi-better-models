@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.log
+*.js.map
+.DS_Store
+package-lock.json
+
+# npm pack artifacts
+*.tgz
+
+# Pix Agent
+.pi/
+.picode/
+.pi-lens/
+graphify-out/
+todo.md
