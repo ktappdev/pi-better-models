@@ -393,9 +393,12 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 				? items.findIndex((it) => it.value === `${current.provider}/${current.id}`)
 				: 0;
 
-			// Widest label (visible width, ANSI-stripped) so the model name
-			// column never truncates to "…". Add gap headroom.
+			// Reserve room for context, pricing, and coding score/grade. A very long
+			// provider/model label must not consume the entire primary column or
+			// pi-tui hides the description when fewer than 10 columns remain.
+			// Long labels truncate; metadata stays visible and useful.
 			const widestLabel = items.reduce((w, it) => Math.max(w, visibleWidth(it.label)), 0);
+			const primaryColumnWidth = Math.min(widestLabel + 2, 48);
 
 			const search = new Input();
 			const list = new SelectList(
@@ -409,8 +412,8 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 					noMatch: (t) => theme.fg("warning", t),
 				},
 				{
-					minPrimaryColumnWidth: widestLabel + 2,
-					maxPrimaryColumnWidth: widestLabel + 2,
+					minPrimaryColumnWidth: primaryColumnWidth,
+					maxPrimaryColumnWidth: primaryColumnWidth,
 				},
 			);
 			if (currentIdx >= 0) list.setSelectedIndex(currentIdx);
