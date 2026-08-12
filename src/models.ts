@@ -447,6 +447,35 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 			);
 			if (currentIdx >= 0) list.setSelectedIndex(currentIdx);
 
+			const listMaxVisible = Math.min(items.length, 14);
+			const highlightSelectedRow = (width: number): string[] => {
+				const rendered = list.render(width);
+				const internal = list as unknown as {
+					filteredItems: SelectItem[];
+					selectedIndex: number;
+				};
+				if (internal.filteredItems.length === 0) return rendered;
+
+				const startIndex = Math.max(
+					0,
+					Math.min(
+						internal.selectedIndex - Math.floor(listMaxVisible / 2),
+						internal.filteredItems.length - listMaxVisible,
+					),
+				);
+				const rowIndex = internal.selectedIndex - startIndex;
+				const line = rendered[rowIndex];
+				if (line === undefined) return rendered;
+
+				const sentinel = "\x00";
+				const bgOpen = theme.bg("selectedBg", sentinel).split(sentinel)[0] ?? "";
+				const reasserted = line.replace(/\x1b\[([0-9;]*)m/g, (seq, params: string) =>
+					params === "0" || params.split(";").includes("49") ? `${seq}${bgOpen}` : seq,
+				);
+				const padding = " ".repeat(Math.max(0, width - visibleWidth(line)));
+				rendered[rowIndex] = theme.bg("selectedBg", `${reasserted}${padding}`);
+				return rendered;
+			};
 			list.onSelect = (item) => done(item.value);
 			list.onCancel = () => done(null);
 			search.onEscape = () => done(null);
@@ -508,7 +537,7 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 						thinkLine(),
 						theme.fg("muted", "Search:"),
 						...search.render(inner),
-						...list.render(inner),
+						...highlightSelectedRow(inner),
 						theme.fg(
 							"dim",
 							"fuzzy search · ↑↓/tab navigate · shift+←/→ thinking · enter select · esc cancel",
