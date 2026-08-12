@@ -8,6 +8,8 @@ Registers a `/models` slash command that replaces Pi's built-in `/model` selecto
 
 Model metadata (context, cost, capabilities) is sourced from [modelgrep](https://modelgrep.com), which republishes Artificial Analysis benchmarks plus pricing/context/capabilities — no API key required. Registered Pi model `cost`/`contextWindow` fill gaps for private or gateway models not in the catalog. The **coding score/rank is the AA Coding Index**, computed locally among your available models (best pickable = #1).
 
+![pi-better-models model picker showing providers, pricing, coding scores, grades, and selected-row highlighting](assets/model-picker.png)
+
 ### Optional: first-party Artificial Analysis fallback
 
 modelgrep covers ~177 benched models. If you want the fuller set (~209 models with a coding index), set an Artificial Analysis API key and the picker fills coding scores that modelgrep is missing:
