@@ -23,6 +23,7 @@ import {
 	SelectList,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
+import { artificialAnalysis, modelgrep } from "./data.ts";
 import { patchOutBuiltinModelCommand } from "./patch-builtin";
 
 // ─── Pure logic (exported for tests) ─────────────────────────────────────────
@@ -238,6 +239,13 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 		return;
 	}
 
+	// Populate the model data caches BEFORE building rows. lookupBenchmark()
+	// and resolveModelsDev() read from disk (getCached()); on a fresh install
+	// the cache files don't exist yet, so without this await every row would
+	// come back unscored with no ctx/cost — the "bare model names" symptom.
+	// modelgrep is the primary (no key); AA only fetches when a key is set.
+	await Promise.allSettled([modelgrep.get(), artificialAnalysis.get()]);
+
 	const current = ctx.model;
 
 	// Build items with benchmark data
@@ -315,7 +323,7 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 			const normalizedByValue = new Map<string, string>();
 			for (const { m } of dedupedRows) {
 				const value = `${m.provider}/${m.id}`;
-				const text = `${m.id} ${m.name ?? ""}`;
+				const text = `${m.provider} ${m.id} ${m.name ?? ""}`;
 				searchTextByValue.set(value, text);
 				normalizedByValue.set(value, normalizeModelText(text));
 			}
@@ -340,9 +348,12 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 					const dash = "—".padEnd(maxRankWidth, " ");
 					rankPrefix = mute("#") + mute(dash);
 				}
-				// Display model id only; m.provider is routing provider, not part of id.
+				// Label: marker + rank cell + muted provider + accent-colored model id.
+				// The provider is the routing provider (openrouter/cc/ds/…), which
+				// matters — the same model id is often served by several providers.
+				const providerColored = mute(`${m.provider}/`);
 				const idColored = theme.fg(accent, m.id);
-				const label = `${marker} ${rankPrefix} ${idColored}`;
+				const label = `${marker} ${rankPrefix} ${providerColored}${idColored}`;
 
 				// Description: ctx · cost · score stars
 				// Colors: ctx muted · cost success (free muted) · score+stars warning
