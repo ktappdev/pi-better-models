@@ -1,70 +1,78 @@
 # pi-better-models
 
-Pi extension — enhanced `/models` picker with **Artificial Analysis coding rank & score**.
-
-## What it does
-
-Registers a `/models` slash command that replaces Pi's built-in `/model` selector with a richer TUI picker. Each row shows the model id, routing provider, per-million-token cost, and an **Artificial Analysis Coding Index** score with a letter grade (A+ → F) when available. Context, pricing, and rating fields are configurable; by default the compact picker shows pricing + rating so the score remains visible. The list is sorted by coding score (best first), then alphabetically for unscored models. Fuzzy search filters the list as you type. `Tab` and `Shift+Tab` cycle next/previous model; `Enter` selects. Selecting a model switches the active model for the session.
-
-Model metadata (context, cost, capabilities) is sourced from [modelgrep](https://modelgrep.com), which republishes Artificial Analysis benchmarks plus pricing/context/capabilities — no API key required. Registered Pi model `cost`/`contextWindow` fill gaps for private or gateway models not in the catalog. The **coding score/rank is the AA Coding Index**, computed locally among your available models (best pickable = #1).
+A Pi extension that replaces the basic model picker with a searchable `/models` picker built for choosing coding models.
 
 ![pi-better-models model picker showing providers, pricing, coding scores, grades, and selected-row highlighting](assets/model-picker.png)
 
-### Optional: first-party Artificial Analysis fallback
+## What you get
 
-modelgrep covers ~177 benched models. If you want the fuller set (~209 models with a coding index), set an Artificial Analysis API key and the picker fills coding scores that modelgrep is missing:
+- Artificial Analysis **Coding Index** score and letter grade (`A+` to `F`)
+- Local rank among the models available in your current Pi session
+- Routing provider shown for every model
+- Input/output pricing
+- Optional context-window display
+- Fuzzy search
+- `Tab` / `Shift+Tab` model cycling
+- `Shift+←` / `Shift+→` thinking-level control
+- Full-width selected-row highlighting
+- `/models` command plus `Ctrl+L` model-picker integration
+
+## Install from GitHub
+
+The package is not published to npm yet:
 
 ```bash
-export ARTIFICIAL_ANALYSIS_API_KEY=aa_xxx   # get one at https://artificialanalysis.ai/login
+pi install git:github.com/ktappdev/pi-better-models
 ```
 
-(`AA_API_KEY` is accepted as an alias.) Without a key the extension works fully on modelgrep alone — the AA source is skipped, so keyless users pay nothing.
+## How the score works
 
-### Picker columns
+The picker uses the **Artificial Analysis Coding Index**, a 0–100 coding-focused score:
 
-The default compact layout is:
+1. It first reads `benchmarks.artificial_analysis.coding` from [modelgrep](https://modelgrep.com).
+2. If modelgrep has no coding score, it uses the first-party Artificial Analysis API when an API key is configured.
+3. If neither source has a coding score, the model is shown as unscored.
+
+There is no intelligence-score rescaling or custom heuristic. The displayed rank is calculated locally across your available, scored models.
+
+Grades are calibrated to the current Coding Index range:
+
+```text
+80+ A+   76–79 A    73–75 A−   70–72 B+
+67–69 B  64–66 B−   61–63 C+   58–60 C
+55–57 C− 50–54 D    <50 F
+```
+
+## Optional first-party AA fallback
+
+Modelgrep works without a key. To fill coding-score gaps with Artificial Analysis’s first-party data, set a free API key:
+
+```bash
+export ARTIFICIAL_ANALYSIS_API_KEY=aa_xxx
+```
+
+`AA_API_KEY` is also accepted as an alias. Restart Pi after changing the environment.
+
+## Choose the row details
+
+The default compact row shows pricing and rating:
 
 ```text
 pricing · coding rank & score (AA)
 ```
 
-Change the visible fields with `PI_MODELS_COLUMNS`. Supported fields are `context`, `pricing`, and `score`:
+Use `PI_MODELS_COLUMNS` to choose from `context`, `pricing`, and `score`:
 
 ```bash
 # Default
 export PI_MODELS_COLUMNS=pricing,score
 
-# Show all available metadata
+# Show all fields
 export PI_MODELS_COLUMNS=context,pricing,score
 
-# Show only context and rating
+# Context and rating only
 export PI_MODELS_COLUMNS=context,score
 ```
-
-Restart Pi after changing the environment variable.
-
-## Install
-
-```bash
-# From npm (once published)
-pi install npm:@ktappdev/pi-better-models
-
-# From GitHub (pre-release)
-pi install git:github.com/ktappdev/pi-better-models
-```
-
-## Data sources
-
-| Source | Role | Key? | Cache |
-| --- | --- | --- | --- |
-| [modelgrep](https://modelgrep.com/api) `/api/v1/models?sort=coding` | Primary catalog: benchmarks, pricing, context, capabilities | No | `~/.cache/pi/modelgrep.json` (24h TTL) |
-| [Artificial Analysis](https://artificialanalysis.ai/api-reference) `/api/v2/data/llms/models` | Coding-index fallback for models modelgrep doesn't score | Free key | `~/.cache/pi/aa.json` (24h TTL) |
-
-Cache files are shared across Pi extensions — whichever loads first populates them; later loads read from disk. If a fetch fails, the last good cache is used.
-
-## Source
-
-[github.com/ktappdev/pi-better-models](https://github.com/ktappdev/pi-better-models)
 
 ## License
 
