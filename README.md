@@ -28,10 +28,10 @@ pi install git:github.com/ktappdev/pi-better-models
 Once published, the npm install will be:
 
 ```bash
-pi install npm:@ktappdev/pi-better-models
+pi install npm:@kentaylorappdev/pi-better-models
 ```
 
-[NPM package page](https://www.npmjs.com/package/@ktappdev/pi-better-models) · [GitHub repository](https://github.com/ktappdev/pi-better-models)
+[NPM package page](https://www.npmjs.com/package/@kentaylorappdev/pi-better-models) · [GitHub repository](https://github.com/ktappdev/pi-better-models)
 
 ## How the score works
 
