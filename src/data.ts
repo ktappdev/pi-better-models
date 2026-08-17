@@ -323,6 +323,13 @@ export const artificialAnalysis = new DataSource<AAFreeModel[]>({
 	empty: [],
 });
 
+/** Prefetch all upstream model data sources in parallel. */
+export function prefetchModelData(): Promise<
+	[PromiseSettledResult<ModelGrepModel[]>, PromiseSettledResult<AAFreeModel[]>]
+> {
+	return Promise.allSettled([modelgrep.get(), artificialAnalysis.get()]);
+}
+
 // ── Lookup helpers ─────────────────────────────────────────────────────────────
 
 function normalize(id: string): string {
@@ -388,10 +395,23 @@ export function buildModelsDevIndex(source: ModelGrepModel[]): Map<string, Model
 	return index;
 }
 
+let cachedModelsDevIndex: Map<string, ModelsDevModel> | null = null;
+let lastModelsDevSourceRef: ModelGrepModel[] | null = null;
+
+export function getModelsDevIndex(): Map<string, ModelsDevModel> {
+	const source = modelgrep.getCached();
+	if (cachedModelsDevIndex && lastModelsDevSourceRef === source) {
+		return cachedModelsDevIndex;
+	}
+	cachedModelsDevIndex = buildModelsDevIndex(source);
+	lastModelsDevSourceRef = source;
+	return cachedModelsDevIndex;
+}
+
 export function lookupModelsDev(_provider: string, id: string): ModelsDevModel | undefined {
 	// Provider prefix differs between Pi routing (cc/ds/openrouter) and modelgrep
 	// (anthropic/tencent), so join on the model slug only via the normalized index.
-	return findInIndex(id, buildModelsDevIndex(modelgrep.getCached()));
+	return findInIndex(id, getModelsDevIndex());
 }
 
 /**
@@ -602,6 +622,22 @@ export function benchScoreColor(
 	return "error";
 }
 
+let cachedBenchIndex: Map<string, BenchmarkEntry> | null = null;
+let lastBenchModelGrepRef: ModelGrepModel[] | null = null;
+let lastBenchAARef: AAFreeModel[] | null = null;
+
+export function getBenchIndex(): Map<string, BenchmarkEntry> {
+	const mg = modelgrep.getCached();
+	const aa = artificialAnalysis.getCached();
+	if (cachedBenchIndex && lastBenchModelGrepRef === mg && lastBenchAARef === aa) {
+		return cachedBenchIndex;
+	}
+	cachedBenchIndex = buildBenchIndex();
+	lastBenchModelGrepRef = mg;
+	lastBenchAARef = aa;
+	return cachedBenchIndex;
+}
+
 export function lookupBenchmark(modelName: string): BenchmarkEntry | undefined {
-	return findInIndex(modelName, buildBenchIndex());
+	return findInIndex(modelName, getBenchIndex());
 }

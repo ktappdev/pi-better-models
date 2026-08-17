@@ -10,8 +10,6 @@
  * first-party fallback when AA_API_KEY is set).
  */
 
-import { benchScoreColor, lookupBenchmark, resolveModelsDev } from "./data.ts";
-import { frameLines, icon, modalWidth } from "./pretty.ts";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
 	fuzzyFilter,
@@ -23,8 +21,15 @@ import {
 	SelectList,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
-import { artificialAnalysis, modelgrep } from "./data.ts";
+import {
+	benchScoreColor,
+	lookupBenchmark,
+	modelgrep,
+	prefetchModelData,
+	resolveModelsDev,
+} from "./data.ts";
 import { patchOutBuiltinModelCommand } from "./patch-builtin";
+import { frameLines, icon, modalWidth } from "./pretty.ts";
 
 // ─── Pure logic (exported for tests) ─────────────────────────────────────────
 
@@ -258,12 +263,15 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 		return;
 	}
 
-	// Populate the model data caches BEFORE building rows. lookupBenchmark()
-	// and resolveModelsDev() read from disk (getCached()); on a fresh install
-	// the cache files don't exist yet, so without this await every row would
-	// come back unscored with no ctx/cost — the "bare model names" symptom.
-	// modelgrep is the primary (no key); AA only fetches when a key is set.
-	await Promise.allSettled([modelgrep.get(), artificialAnalysis.get()]);
+	// Populate or refresh the model data caches. On a fresh install where
+	// cache files don't exist yet, await the fetch so rows don't come back
+	// unscored. If cached data already exists, trigger a background refresh
+	// (stale-while-revalidate) and open the picker immediately with zero latency.
+	if (modelgrep.getCached().length === 0) {
+		await prefetchModelData();
+	} else {
+		void prefetchModelData();
+	}
 
 	const current = ctx.model;
 

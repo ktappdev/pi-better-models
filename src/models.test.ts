@@ -361,3 +361,27 @@ describe("filterModelItems", () => {
 		expect(values(result)).toEqual(allItems.map((it) => it.value));
 	});
 });
+
+describe("memoized data indexes", () => {
+	it("returns identical Map reference on repeated getBenchIndex calls", async () => {
+		const { getBenchIndex } = await import("./data.ts");
+		const index1 = getBenchIndex();
+		const index2 = getBenchIndex();
+		expect(index1).toBe(index2);
+	});
+
+	it("returns identical Map reference on repeated getModelsDevIndex calls", async () => {
+		const { getModelsDevIndex } = await import("./data.ts");
+		const index1 = getModelsDevIndex();
+		const index2 = getModelsDevIndex();
+		expect(index1).toBe(index2);
+	});
+
+	it("prefetchModelData executes without throwing", async () => {
+		const { prefetchModelData } = await import("./data.ts");
+		const results = await prefetchModelData();
+		expect(Array.isArray(results)).toBe(true);
+		expect(results.length).toBe(2);
+	});
+});
+
