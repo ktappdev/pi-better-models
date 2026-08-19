@@ -28,7 +28,7 @@ pi install git:github.com/ktappdev/pi-better-models
 Once published, the npm install will be:
 
 ```bash
-pi install npm:@kentaylorappdev/pi-better-models
+pi install npm:pi-better-models
 ```
 
 [NPM package page](https://www.npmjs.com/package/@kentaylorappdev/pi-better-models) · [GitHub repository](https://github.com/ktappdev/pi-better-models)
