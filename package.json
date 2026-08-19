@@ -1,6 +1,6 @@
 {
 	"name": "@kentaylorappdev/pi-better-models",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Pi extension — enhanced /models picker with Artificial Analysis coding rank & score",
 	"type": "module",
 	"main": "src/index.ts",
@@ -13,6 +13,7 @@
 		"LICENSE"
 	],
 	"pi": {
+		"image": "https://cdn.jsdelivr.net/gh/ktappdev/pi-better-models@main/assets/model-picker.png",
 		"extensions": [
 			"src/extension.ts"
 		]
