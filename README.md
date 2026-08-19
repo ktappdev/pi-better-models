@@ -31,7 +31,7 @@ Once published, the npm install will be:
 pi install npm:pi-better-models
 ```
 
-[NPM package page](https://www.npmjs.com/package/@kentaylorappdev/pi-better-models) · [GitHub repository](https://github.com/ktappdev/pi-better-models)
+[NPM package page](https://www.npmjs.com/package/pi-better-models) · [GitHub repository](https://github.com/ktappdev/pi-better-models)
 
 ## How the score works
 
