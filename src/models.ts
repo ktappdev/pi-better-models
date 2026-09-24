@@ -19,6 +19,7 @@ import {
 	matchesKey,
 	type SelectItem,
 	SelectList,
+	type SelectListLayoutOptions,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
 import {
@@ -29,7 +30,7 @@ import {
 	resolveModelsDev,
 } from "./data.ts";
 import { patchOutBuiltinModelCommand } from "./patch-builtin";
-import { frameLines, icon, modalWidth } from "./pretty.ts";
+import { frameLines, icon, modalOverlayWidth, modalWidth } from "./pretty.ts";
 
 // ─── Pure logic (exported for tests) ─────────────────────────────────────────
 
@@ -135,6 +136,49 @@ export function sortModels<T extends SortableModel>(models: T[]): T[] {
 /** Lowercase and strip all non-alphanumerics: "glm-5.2" → "glm52". */
 export function normalizeModelText(s: string): string {
 	return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// ─── Picker layout ───────────────────────────────────────────────────────────
+
+/**
+ * Historical cap on the model-label column. Frames too narrow to widen it keep
+ * the layout they always had: long labels truncate, metadata stays put.
+ */
+export const MIN_MODEL_PRIMARY_COLUMN_WIDTH = 40;
+
+/**
+ * pi-tui's SelectList only renders an item's description while more than 10
+ * columns remain after the label column, so never leave it fewer than that.
+ */
+const MIN_DESCRIPTION_COLUMN_WIDTH = 11;
+
+/** SelectList overhead outside both columns: 2 label-prefix cols + 2 safety. */
+const LABEL_COLUMN_OVERHEAD = 4;
+
+/**
+ * Width of the picker's model-label column for a frame `innerWidth` cols wide.
+ *
+ * Grows with the widest label instead of stopping at a fixed 40 cols — real
+ * router ids run to ~75 chars (`routeway/qwen3.5-27b-claude-4.6-opus-
+ * reasoning-distilled-derestricted-lite`) and were cut mid-name even on a
+ * 200-col terminal. The growth is bounded by what the frame can spare so the
+ * configured metadata (pricing · coding score) always stays visible: the widest
+ * description keeps its columns plus SelectList's 2-col gap and 2-col
+ * prefix/safety slack. On frames too narrow for even that, the legacy 40-col
+ * floor applies and SelectList re-clamps to the rendered width — and, on very
+ * narrow frames, drops the description exactly as before.
+ */
+export function modelPrimaryColumnWidth(
+	widestLabel: number,
+	widestDescription: number,
+	innerWidth: number,
+): number {
+	const forDescription = Math.max(widestDescription, MIN_DESCRIPTION_COLUMN_WIDTH);
+	const cap = Math.max(
+		MIN_MODEL_PRIMARY_COLUMN_WIDTH,
+		innerWidth - LABEL_COLUMN_OVERHEAD - forDescription,
+	);
+	return Math.max(1, Math.min(widestLabel + 2, cap));
 }
 
 // ─── Thinking level control ──────────────────────────────────────────────────
@@ -429,13 +473,16 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 				? items.findIndex((it) => it.value === `${current.provider}/${current.id}`)
 				: 0;
 
-			// Reserve room for context, pricing, and coding score/grade. A very long
-			// provider/model label must not consume the entire primary column or
-			// pi-tui hides the description when fewer than 10 columns remain.
-			// Long provider/model labels truncate so the configured metadata stays
-			// visible. Keep the primary column compact enough for pricing + rating.
+			// Model-label column width. It must fit long provider/model ids, yet pi-tui
+			// hides the description entirely once fewer than 10 columns remain after it,
+			// so the configured metadata keeps first claim on the row. See
+			// modelPrimaryColumnWidth() — the column tracks the rendered frame width,
+			// which is why it's recomputed per render instead of fixed here.
 			const widestLabel = items.reduce((w, it) => Math.max(w, visibleWidth(it.label)), 0);
-			const primaryColumnWidth = Math.min(widestLabel + 2, 40);
+			const widestDescription = items.reduce(
+				(w, it) => Math.max(w, visibleWidth(it.description ?? "")),
+				0,
+			);
 
 			const search = new Input();
 			const list = new SelectList(
@@ -448,12 +495,28 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 					scrollInfo: (t) => theme.fg("dim", t),
 					noMatch: (t) => theme.fg("warning", t),
 				},
+				// Seed only — recalculated for the real frame width before every render
+				// (setPrimaryColumnWidth below). SelectList clamps the column to the width
+				// it is handed, so one fixed value cannot serve narrow and wide frames.
 				{
-					minPrimaryColumnWidth: primaryColumnWidth,
-					maxPrimaryColumnWidth: primaryColumnWidth,
+					minPrimaryColumnWidth: MIN_MODEL_PRIMARY_COLUMN_WIDTH,
+					maxPrimaryColumnWidth: MIN_MODEL_PRIMARY_COLUMN_WIDTH,
 				},
 			);
 			if (currentIdx >= 0) list.setSelectedIndex(currentIdx);
+
+			/** Recompute the label column for the frame width about to be rendered. */
+			const setPrimaryColumnWidth = (innerWidth: number): void => {
+				const width = modelPrimaryColumnWidth(widestLabel, widestDescription, innerWidth);
+				// SelectList keeps its layout private; widen it through the same runtime
+				// cast this picker already uses for its other internals. If a future
+				// pi-tui renames or copies that field, fall back to the seeded value —
+				// i.e. the fixed 40-col column — instead of throwing mid-render.
+				const layout = (list as unknown as { layout?: SelectListLayoutOptions }).layout;
+				if (!layout) return;
+				layout.minPrimaryColumnWidth = width;
+				layout.maxPrimaryColumnWidth = width;
+			};
 
 			const listMaxVisible = Math.min(items.length, 14);
 			const highlightSelectedRow = (width: number): string[] => {
@@ -530,6 +593,7 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 				render(w: number) {
 					const mw = modalWidth(w);
 					const inner = mw - 4; // CHROME = 2 border + 2 padding
+					setPrimaryColumnWidth(inner);
 					const detailHeader = detailColumns
 						.map((column) =>
 							column === "context"
@@ -613,7 +677,13 @@ async function showEnhancedPicker(pi: ExtensionAPI, ctx: ExtensionContext): Prom
 				},
 			};
 		},
-		{ overlay: true },
+		{
+			overlay: true,
+			// pi-tui renders the overlay at min(80, terminal) unless asked otherwise,
+			// so without this the modal could never exceed 76 cols. The host clamps
+			// the value to the terminal width (see modalOverlayWidth).
+			overlayOptions: { width: modalOverlayWidth() },
+		},
 	);
 
 	if (!result) return;

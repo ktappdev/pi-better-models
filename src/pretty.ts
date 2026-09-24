@@ -67,14 +67,35 @@ export function icon(key: IconKey): string {
 // ── Modal frame ───────────────────────────────────────────────────────────────
 
 const MIN_WIDTH = 40;
-const MAX_WIDTH = 96;
+/**
+ * Upper bound on the modal width. Wide enough for the widest real provider/model
+ * id in the catalog (~75 cols, e.g.
+ * `routeway/qwen3.5-27b-claude-4.6-opus-reasoning-distilled-derestricted-lite`)
+ * plus its rank/marker cell, the row metadata and the frame chrome — 96 cut long
+ * model names even on a 200-col terminal.
+ */
+const MAX_WIDTH = 120;
 const MARGIN = 4;
 /** 2 border cols + 2 padding spaces */
 const CHROME = 4;
 
-/** Clamp terminal width to a sane modal width (40–96 cols). */
+/** Clamp terminal width to a sane modal width (40–120 cols). */
 export function modalWidth(termWidth: number): number {
 	return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, termWidth - MARGIN));
+}
+
+/**
+ * Width to request for the overlay that hosts the picker modal.
+ *
+ * pi-tui caps an overlay at `min(80, terminalWidth)` unless the caller asks for
+ * a width, and then renders the component at exactly that width — so an 80-col
+ * overlay silently clamped every modal to 76 cols and made MAX_WIDTH
+ * unreachable. The host clamps the requested width to the terminal, so asking
+ * for the widest modal plus its margin yields: full modal on wide terminals,
+ * terminal width on narrower ones (unchanged narrow behavior).
+ */
+export function modalOverlayWidth(): number {
+	return MAX_WIDTH + MARGIN;
 }
 
 export interface FrameOptions {

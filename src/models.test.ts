@@ -1,13 +1,16 @@
 import { describe, expect, it } from "bun:test";
+import { SelectList, visibleWidth } from "@earendil-works/pi-tui";
 import {
 	benchGrade,
 	getModelDetailColumns,
 	filterModelItems,
 	fmtCost,
 	fmtCtx,
+	MIN_MODEL_PRIMARY_COLUMN_WIDTH,
 	MODEL_SELECTION_NEXT_KEY,
 	MODEL_SELECTION_PREVIOUS_KEY,
 	type ModelSearchLookup,
+	modelPrimaryColumnWidth,
 	modelSelectionCycleKey,
 	normalizeModelText,
 	sortModels,
@@ -181,6 +184,116 @@ describe("getModelDetailColumns", () => {
 		expect(getModelDetailColumns("")).toEqual(["pricing", "score"]);
 	});
 });
+// ─── modelPrimaryColumnWidth ──────────────────────────────────────────────────
+
+// Widest row in the real catalog: marker + rank cell + `provider/id`
+// (routeway/qwen3.5-27b-claude-4.6-opus-reasoning-distilled-derestricted-lite).
+const WIDEST_LABEL = 79;
+// Default PI_MODELS_COLUMNS rendering: "3.00/15.00 · ⚡78 A"
+const WIDEST_DESC = 18;
+
+describe("modelPrimaryColumnWidth", () => {
+	it("keeps the legacy 40-col cap on frames too narrow to widen it", () => {
+		expect(MIN_MODEL_PRIMARY_COLUMN_WIDTH).toBe(40);
+		expect(modelPrimaryColumnWidth(WIDEST_LABEL, WIDEST_DESC, 36)).toBe(40);
+		expect(modelPrimaryColumnWidth(WIDEST_LABEL, WIDEST_DESC, 56)).toBe(40);
+	});
+
+	it("grows past the old 40-col cap as the frame allows", () => {
+		expect(modelPrimaryColumnWidth(WIDEST_LABEL, WIDEST_DESC, 72)).toBe(50);
+		expect(modelPrimaryColumnWidth(WIDEST_LABEL, WIDEST_DESC, 116)).toBe(81);
+	});
+
+	it("fits the widest label once the frame is wide enough", () => {
+		// 120-col modal → 116 inner.
+		expect(modelPrimaryColumnWidth(WIDEST_LABEL, WIDEST_DESC, 116)).toBeGreaterThanOrEqual(
+			WIDEST_LABEL,
+		);
+	});
+
+	it("never spends the columns the widest description needs", () => {
+		const inner = 116;
+		// Even an absurdly long label leaves the description + SelectList's slack.
+		expect(modelPrimaryColumnWidth(1_000, WIDEST_DESC, inner)).toBe(inner - 4 - WIDEST_DESC);
+	});
+
+	it("reserves at least SelectList's 11-col description minimum", () => {
+		// Below that pi-tui drops the description entirely.
+		expect(modelPrimaryColumnWidth(1_000, 0, 116)).toBe(116 - 4 - 11);
+	});
+
+	it("shrinks to a short label instead of padding it out", () => {
+		expect(modelPrimaryColumnWidth(20, WIDEST_DESC, 116)).toBe(22);
+	});
+
+	it("is monotonic in frame width", () => {
+		let previous = 0;
+		for (let inner = 20; inner <= 140; inner++) {
+			const width = modelPrimaryColumnWidth(WIDEST_LABEL, WIDEST_DESC, inner);
+			expect(width).toBeGreaterThanOrEqual(previous);
+			previous = width;
+		}
+	});
+});
+
+// ─── picker rows with wide model names (real SelectList) ──────────────────────
+
+describe("picker rows with wide model names", () => {
+	const theme = {
+		selectedPrefix: (t: string) => t,
+		selectedText: (t: string) => t,
+		description: (t: string) => t,
+		scrollInfo: (t: string) => t,
+		noMatch: (t: string) => t,
+	};
+	const label =
+		"▶ #1 routeway/qwen3.5-27b-claude-4.6-opus-reasoning-distilled-derestricted-lite";
+	const description = "3.00/15.00 · ⚡78 A";
+	const items = [{ value: "routeway/wide", label, description }];
+	const widestLabel = visibleWidth(label);
+	const widestDescription = visibleWidth(description);
+
+	/** Render the row the way the picker does: column derived from frame width. */
+	function renderRow(inner: number): string {
+		const width = modelPrimaryColumnWidth(widestLabel, widestDescription, inner);
+		const list = new SelectList(items, 1, theme, {
+			minPrimaryColumnWidth: width,
+			maxPrimaryColumnWidth: width,
+		});
+		return list.render(inner)[0] ?? "";
+	}
+
+	it("shows the full name and the metadata on a wide frame", () => {
+		const line = renderRow(116);
+		expect(line).toContain(label);
+		expect(line).toContain(description);
+		expect(visibleWidth(line)).toBeLessThanOrEqual(116);
+	});
+
+	it("keeps the metadata when the name truncates on a mid frame", () => {
+		const line = renderRow(72);
+		expect(line).not.toContain(label); // must truncate at 80 cols
+		expect(line).toContain(description);
+		expect(visibleWidth(line)).toBeLessThanOrEqual(72);
+	});
+
+	it("falls back to a label-only row on a very narrow frame", () => {
+		const line = renderRow(36);
+		expect(line).not.toContain(description);
+		expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+	});
+
+	it("never drops the metadata on a frame wide enough to hold it", () => {
+		// Regression guard for the pi-tui rule: the description disappears once
+		// fewer than 10 columns remain after the label column.
+		for (let inner = 56; inner <= 140; inner++) {
+			const line = renderRow(inner);
+			expect(line).toContain("3.00/15.00");
+			expect(visibleWidth(line)).toBeLessThanOrEqual(inner);
+		}
+	});
+});
+
 describe("sortModels", () => {
 	const models = [
 		{ provider: "a", id: "m1", name: "Zebra", score: 80 },

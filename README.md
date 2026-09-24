@@ -19,16 +19,16 @@ A Pi extension that replaces the basic model picker with a searchable `/models` 
 
 ## Install
 
-The package is not published on npm yet. Use the GitHub install for now:
-
-```bash
-pi install git:github.com/ktappdev/pi-better-models
-```
-
-Once published, the npm install will be:
+Install from npm:
 
 ```bash
 pi install npm:pi-better-models
+```
+
+You can also install directly from GitHub:
+
+```bash
+pi install git:github.com/ktappdev/pi-better-models
 ```
 
 [NPM package page](https://www.npmjs.com/package/pi-better-models) · [GitHub repository](https://github.com/ktappdev/pi-better-models)
